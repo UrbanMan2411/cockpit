@@ -49,10 +49,11 @@ export default function Ozon() {
   )
 
   const exportCsv = useCallback(() => {
-    const head = ['Ранг', 'SKU', 'Наименование', 'Выручка ₽', 'Заказы', 'Показы', 'Конверсия', 'Возвраты', 'Отмены']
+    const head = ['Ранг', 'SKU', 'Наименование', 'Выручка ₽', 'Заказы', 'Средний чек ₽', 'Доля выручки']
+    const tot = state.totals?.revenue || 1
     const lines = state.rows.map((r, i) =>
-      [i + 1, r.sku, `"${(r.name || '').replace(/"/g, '""')}"`, Math.round(r.revenue), r.units, r.views,
-       (r.conv * 100).toFixed(2) + '%', r.returns, r.cancellations].join(',')
+      [i + 1, r.sku, `"${(r.name || '').replace(/"/g, '""')}"`, Math.round(r.revenue), r.units,
+       Math.round(r.avgCheck), ((r.revenue / tot) * 100).toFixed(1) + '%'].join(',')
     )
     const blob = new Blob(['﻿' + [head.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -123,8 +124,8 @@ export default function Ozon() {
               <span className="oz-stat-val">{int(state.totals.units)}</span>
             </div>
             <div className="oz-stat">
-              <span className="oz-stat-label">Показы</span>
-              <span className="oz-stat-val">{int(state.totals.views)}</span>
+              <span className="oz-stat-label">Средний чек</span>
+              <span className="oz-stat-val">{rub(state.totals.units > 0 ? state.totals.revenue / state.totals.units : 0)}</span>
             </div>
             <div className="oz-stat">
               <span className="oz-stat-label">SKU в выборке</span>
@@ -157,9 +158,8 @@ export default function Ozon() {
                   <th>Товар</th>
                   <th className="r">Выручка</th>
                   <th className="r">Заказы</th>
-                  <th className="r">Показы</th>
-                  <th className="r">Конверсия</th>
-                  <th className="r">Возвраты</th>
+                  <th className="r">Средний чек</th>
+                  <th className="r">Доля выручки</th>
                 </tr>
               </thead>
               <tbody>
@@ -172,17 +172,20 @@ export default function Ozon() {
                     </td>
                     <td className="r oz-rev">{rub(r.revenue)}</td>
                     <td className="r">{int(r.units)}</td>
-                    <td className="r">{int(r.views)}</td>
-                    <td className="r">{pct(r.conv)}</td>
-                    <td className="r">{int(r.returns)}</td>
+                    <td className="r">{rub(r.avgCheck)}</td>
+                    <td className="r">{pct(state.totals.revenue > 0 ? r.revenue / state.totals.revenue : 0)}</td>
                   </tr>
                 ))}
                 {!state.rows.length && (
-                  <tr><td colSpan={7} className="oz-empty">За выбранный период данных нет.</td></tr>
+                  <tr><td colSpan={6} className="oz-empty">За выбранный период данных нет.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
+          <p className="oz-note">
+            Ozon Seller API отдаёт по SKU выручку и заказы. Показы и конверсия доступны только
+            на тарифе Ozon Premium Plus — при подключении добавлю колонки воронки.
+          </p>
         </>
       )}
     </>

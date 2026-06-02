@@ -1,12 +1,16 @@
-// Vercel serverless function — proxies the Wildberries Analytics API (воронка
-// продаж по карточкам / nm-report). Server-to-server only; the WB token lives
-// in env (WB_TOKEN) and never reaches the browser.
+// Vercel serverless function — proxies the Wildberries Analytics v3 "Sales
+// Funnel" (воронка продаж по карточкам). Server-to-server only; the WB token
+// lives in env (WB_TOKEN) and never reaches the browser.
+//
+// Endpoint: POST https://seller-analytics-api.wildberries.ru/api/analytics/v3/sales-funnel/products
+// Body uses `selectedPeriod:{start,end}` and `cursor:{limit}`; there is no
+// server-side orderBy, so we fetch a wide page and sort by revenue here.
 //
 // GET /api/wb/top-sku?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=30
 // → { from, to, limit, rows:[{nmId,vendorCode,brand,subject,views,cart,orders,
 //      revenue,buyouts,buyoutsSum,cancels,avgPrice,convCart,convOrder,buyoutPct}], totals }
 
-const WB_URL = 'https://seller-analytics-api.wildberries.ru/api/v2/nm-report/detail'
+const WB_URL = 'https://seller-analytics-api.wildberries.ru/api/analytics/v3/sales-funnel/products'
 
 export default async function handler(req, res) {
   const token = process.env.WB_TOKEN
@@ -28,21 +32,22 @@ export default async function handler(req, res) {
   let limit = parseInt(q.limit, 10) || 30
   limit = Math.min(Math.max(limit, 1), 100)
 
+  // Fetch a wide page (no server-side sort in v3) and rank locally.
   const body = {
+    nmIDs: [],
+    brandNames: [],
+    objectIDs: [],
+    tagIDs: [],
     timezone: 'Europe/Moscow',
-    period: { begin: `${from} 00:00:00`, end: `${to} 23:59:59` },
-    orderBy: { field: 'ordersSumRub', mode: 'desc' },
-    page: 1,
+    selectedPeriod: { start: from, end: to },
+    cursor: { limit: 1000 },
   }
 
   let wbResp, text
   try {
     wbResp = await fetch(WB_URL, {
       method: 'POST',
-      headers: {
-        Authorization: token,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: token, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
     text = await wbResp.text()
@@ -65,33 +70,45 @@ export default async function handler(req, res) {
     return res.status(502).json({ error: 'bad_json', message: (text || '').slice(0, 300) })
   }
 
-  const cards = (json.data && json.data.cards) || []
-  const rows = cards.slice(0, limit).map((c) => {
-    const sp = (c.statistics && c.statistics.selectedPeriod) || {}
-    const conv = sp.conversions || {}
+  const products = (json.data && json.data.products) || []
+  let rows = products.map((p) => {
+    const prod = p.product || {}
+    const sel = (p.statistic && p.statistic.selected) || {}
+    const conv = sel.conversions || {}
+    const stocks = prod.stocks || {}
     return {
-      nmId: c.nmID || '',
-      vendorCode: c.vendorCode || '',
-      brand: c.brandName || '',
-      subject: (c.object && c.object.name) || '',
-      views: +sp.openCardCount || 0,
-      cart: +sp.addToCartCount || 0,
-      orders: +sp.ordersCount || 0,
-      revenue: +sp.ordersSumRub || 0,
-      buyouts: +sp.buyoutsCount || 0,
-      buyoutsSum: +sp.buyoutsSumRub || 0,
-      cancels: +sp.cancelCount || 0,
-      avgPrice: +sp.avgPriceRub || 0,
+      nmId: prod.nmId || '',
+      title: prod.title || '',
+      vendorCode: prod.vendorCode || '',
+      brand: prod.brandName || '',
+      subject: prod.subjectName || '',
+      rating: +prod.feedbackRating || 0,
+      stock: +stocks.balanceSum || 0,
+      views: +sel.openCount || 0,
+      cart: +sel.cartCount || 0,
+      orders: +sel.orderCount || 0,
+      revenue: +sel.orderSum || 0,
+      buyouts: +sel.buyoutCount || 0,
+      buyoutsSum: +sel.buyoutSum || 0,
+      cancels: +sel.cancelCount || 0,
+      avgPrice: +sel.avgPrice || 0,
       convCart: +conv.addToCartPercent || 0,
       convOrder: +conv.cartToOrderPercent || 0,
-      buyoutPct: +conv.buyoutsPercent || 0,
+      buyoutPct: +conv.buyoutPercent || 0,
     }
   })
+
+  // Rank by revenue (orderSum) and keep the requested top-N.
+  rows.sort((a, b) => b.revenue - a.revenue)
+  const fetched = rows.length
+  rows = rows.slice(0, limit)
+
   const totals = {
     revenue: rows.reduce((s, r) => s + r.revenue, 0),
     orders: rows.reduce((s, r) => s + r.orders, 0),
     views: rows.reduce((s, r) => s + r.views, 0),
     skuCount: rows.length,
+    fetched, // how many SKUs were scanned to build this top-N
   }
 
   res.setHeader('Cache-Control', 'no-store')

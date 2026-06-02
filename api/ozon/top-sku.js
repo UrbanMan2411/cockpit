@@ -32,8 +32,10 @@ export default async function handler(req, res) {
   let limit = parseInt(q.limit, 10) || 30
   limit = Math.min(Math.max(limit, 1), 200)
 
-  // Core analytics metrics (order matters — we read them positionally below).
-  const metrics = ['revenue', 'ordered_units', 'hits_view', 'conv_tocart', 'returns', 'cancellations']
+  // Ozon /v1/analytics/data reliably exposes revenue + ordered_units for every
+  // account; traffic/funnel metrics (hits_view, conv_tocart…) are Premium-only
+  // and are silently omitted otherwise — so we stick to the two that always work.
+  const metrics = ['revenue', 'ordered_units']
   const body = {
     date_from: from,
     date_to: to,
@@ -81,22 +83,23 @@ export default async function handler(req, res) {
   const rows = data.map((row) => {
     const dim = (row.dimensions && row.dimensions[0]) || {}
     const m = row.metrics || []
+    const revenue = +m[0] || 0
+    const units = +m[1] || 0
     return {
       sku: dim.id || '',
       name: dim.name || '',
-      revenue: +m[0] || 0,
-      units: +m[1] || 0,
-      views: +m[2] || 0,
-      conv: +m[3] || 0,
-      returns: +m[4] || 0,
-      cancellations: +m[5] || 0,
+      revenue,
+      units,
+      avgCheck: units > 0 ? revenue / units : 0,
     }
   })
+  // grand totals across ALL SKUs (Ozon returns them in result.totals)
+  const gt = (json.result && json.result.totals) || []
   const totals = {
     revenue: rows.reduce((s, r) => s + r.revenue, 0),
     units: rows.reduce((s, r) => s + r.units, 0),
-    views: rows.reduce((s, r) => s + r.views, 0),
     skuCount: rows.length,
+    totalRevenue: +gt[0] || rows.reduce((s, r) => s + r.revenue, 0), // whole-account revenue
   }
 
   res.setHeader('Cache-Control', 'no-store')

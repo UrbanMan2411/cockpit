@@ -75,6 +75,15 @@ export default function GeneratorPanel({ title, sub, brand, bgSwatch, downloadNa
     }
   }, [rows, bgMode, bgCustom, bgOpacity, buildPdf, downloadName])
 
+  // Inline edit of a product field (name / volume / sku / price) before export.
+  const updateRow = useCallback((i, field, value) => {
+    setRows((prev) => {
+      const next = prev.slice()
+      next[i] = { ...next[i], [field]: value }
+      return next
+    })
+  }, [])
+
   const onDrop = (e) => {
     e.preventDefault(); setDragOver(false)
     handleFile(e.dataTransfer.files?.[0])
@@ -178,24 +187,58 @@ export default function GeneratorPanel({ title, sub, brand, bgSwatch, downloadNa
       )}
 
       {rows.length > 0 && (
-        <div className={cls('preview')}>
-          <table>
-            <thead>
-              <tr><th></th><th>Наименование</th><th>Объём</th><th>Артикул</th><th>Цена ₽</th></tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} className={r.section !== rows[i - 1]?.section ? 'newsec' : ''}>
-                  <td className="thumb">{r.image ? <img src={r.image} alt="" /> : <span className="nophoto">—</span>}</td>
-                  <td className="nm">{r.name}</td>
-                  <td>{r.volume}</td>
-                  <td className="mono">{r.sku}</td>
-                  <td className="price">{r.price > 0 ? r.price.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="edit-hint">✎ Значения можно править прямо в таблице — название, объём, артикул и цену. Изменения попадут в PDF.</div>
+          <div className={cls('preview') + ' editable'}>
+            <table>
+              <thead>
+                <tr><th></th><th>Наименование</th><th>Объём</th><th>Артикул</th><th>Цена ₽</th></tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i} className={r.section !== rows[i - 1]?.section ? 'newsec' : ''}>
+                    <td className="thumb">{r.image ? <img src={r.image} alt="" /> : <span className="nophoto">—</span>}</td>
+                    <td className="nm">
+                      <input
+                        className="ed"
+                        value={r.name}
+                        onChange={(e) => updateRow(i, 'name', e.target.value)}
+                        aria-label="Наименование"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="ed ed-c"
+                        value={r.volume}
+                        onChange={(e) => updateRow(i, 'volume', e.target.value)}
+                        aria-label="Объём"
+                      />
+                    </td>
+                    <td className="mono">
+                      <input
+                        className="ed ed-c"
+                        value={r.sku}
+                        onChange={(e) => updateRow(i, 'sku', e.target.value)}
+                        aria-label="Артикул"
+                      />
+                    </td>
+                    <td className="price">
+                      <input
+                        className="ed ed-r ed-price"
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={Number.isFinite(r.price) ? r.price : 0}
+                        onChange={(e) => updateRow(i, 'price', e.target.value === '' ? 0 : Number(e.target.value))}
+                        aria-label="Цена"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </>
   )
