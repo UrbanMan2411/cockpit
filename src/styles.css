@@ -294,3 +294,44 @@ button { font-family: inherit; }
 .preview .ed[type=number]::-webkit-outer-spin-button,
 .preview .ed[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .preview .ed[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+/* ── Price-list editor (sections + rows, drag-reorder) ───── */
+.ed-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 22px 0 8px; flex-wrap: wrap; }
+.ed-toolbar .edit-hint { margin: 0; }
+.ed-addsec { appearance: none; border: 1px solid var(--line); background: #fff; cursor: pointer; font: inherit; font-weight: 700; font-size: 13px; color: var(--bordo); padding: 7px 14px; border-radius: 9px; }
+.ed-addsec:hover { background: rgba(168,38,47,.05); }
+.ed-list.green .ed-addsec { color: var(--green-9); }
+
+.ed-list { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; }
+.ed-cols, .ed-row { display: grid; grid-template-columns: 26px 46px 1fr 80px 116px 104px 30px; gap: 8px; align-items: center; }
+.ed-cols { padding: 9px 10px; background: var(--bordo); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .03em; }
+.ed-list.green .ed-cols { background: var(--green-9); }
+.ed-row { padding: 3px 10px; border-top: 1px solid var(--line); background: #fff; }
+.ed-sec { display: grid; grid-template-columns: 26px 1fr auto auto; gap: 8px; align-items: center; padding: 6px 10px; border-top: 1px solid var(--line); background: rgba(168,38,47,.07); }
+.ed-list.green .ed-sec { background: rgba(31,176,97,.09); }
+.ed-row.dragging, .ed-sec.dragging { box-shadow: 0 10px 26px rgba(0,0,0,.16); border-radius: 8px; }
+
+.ed-handle { cursor: grab; color: var(--muted); font-size: 15px; text-align: center; user-select: none; }
+.ed-handle:active { cursor: grabbing; }
+.ed-thumb img { width: 38px; height: 46px; object-fit: cover; border-radius: 5px; border: 1px solid var(--line); display: block; }
+.ed-thumb .nophoto { color: var(--muted); display: inline-block; text-align: center; width: 100%; }
+
+.ed { width: 100%; box-sizing: border-box; font: inherit; color: inherit; border: 1px solid transparent; background: transparent; padding: 6px 8px; border-radius: 7px; transition: .12s ease; }
+.ed:hover { border-color: var(--line); background: #fff; }
+.ed:focus { outline: none; border-color: var(--red); background: #fff; box-shadow: 0 0 0 3px rgba(168,38,47,.12); }
+.ed-list.green .ed:focus { border-color: var(--green-7); box-shadow: 0 0 0 3px rgba(31,176,97,.15); }
+.ed-c { text-align: center; } .ed-r { text-align: right; }
+.ed-mono { font-variant-numeric: tabular-nums; }
+.ed-price { font-weight: 800; color: var(--red); font-variant-numeric: tabular-nums; }
+.ed-list.green .ed-price { color: var(--green-9); }
+.ed-secname { font-weight: 800; text-transform: uppercase; color: var(--bordo); font-size: 13px; }
+.ed-list.green .ed-secname { color: var(--green-9); }
+.ed-list input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.ed-list input[type=number]::-webkit-inner-spin-button,
+.ed-list input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+.ed-del { appearance: none; border: 0; background: transparent; cursor: pointer; color: var(--muted); font-size: 18px; line-height: 1; border-radius: 6px; width: 28px; height: 28px; }
+.ed-del:hover { background: rgba(217,83,79,.12); color: #c9302c; }
+.ed-add { appearance: none; border: 1px solid var(--line); background: #fff; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; color: var(--ink-7); padding: 5px 10px; border-radius: 8px; white-space: nowrap; }
+.ed-add:hover { border-color: var(--bordo); color: var(--bordo); }
+.ed-list.green .ed-add:hover { border-color: var(--green-7); color: var(--green-9); }
