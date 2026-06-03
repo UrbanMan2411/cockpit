@@ -1,0 +1,19 @@
+// GET /api/downloads/list → { items:[{url,pathname,size,uploadedAt}] }
+// Lists every file in the Vercel Blob store (newest first).
+import { list } from '@vercel/blob'
+
+export default async function handler(req, res) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return res.status(503).json({ error: 'not_configured', message: 'BLOB_READ_WRITE_TOKEN не задан в env.' })
+  }
+  try {
+    const { blobs } = await list()
+    const items = blobs
+      .map((b) => ({ url: b.url, pathname: b.pathname, size: b.size, uploadedAt: b.uploadedAt }))
+      .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))
+    res.setHeader('Cache-Control', 'no-store')
+    return res.status(200).json({ items })
+  } catch (e) {
+    return res.status(500).json({ error: 'list_failed', message: String((e && e.message) || e) })
+  }
+}

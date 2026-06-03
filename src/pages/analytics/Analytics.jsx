@@ -54,7 +54,7 @@ export default function Analytics() {
       <p className="page-sub">Дашборд-шаблон, скрипты выгрузки и тренд-бриф 2025–2026.</p>
 
       <h2 style={{ fontSize: 16, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '.08em', margin: '8px 0 12px' }}>
-        Загрузки
+        Скрипты и шаблоны
       </h2>
       <div className="cards-grid">
         {DOWNLOADS.map((d) => (

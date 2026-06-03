@@ -9,6 +9,7 @@ const Wb         = lazy(() => import('./pages/analytics/Wb'))
 const Matreshka  = lazy(() => import('./pages/generators/Matreshka'))
 const GreenPanda = lazy(() => import('./pages/generators/GreenPanda'))
 const Kanban     = lazy(() => import('./pages/plan/Kanban'))
+const Downloads  = lazy(() => import('./pages/downloads/Downloads'))
 
 const Loading = () => (
   <div className="card" style={{ marginTop: 24 }}>
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/generators/matreshka" element={<Matreshka />} />
           <Route path="/generators/greenpanda" element={<GreenPanda />} />
           <Route path="/plan" element={<Kanban />} />
+          <Route path="/downloads" element={<Downloads />} />
           <Route path="*" element={<Navigate to="/analytics" replace />} />
         </Routes>
       </Suspense>

@@ -21,6 +21,10 @@ const NAV = [
     title: 'План',
     items: [{ to: '/plan', label: 'Канбан' }],
   },
+  {
+    title: 'Файлы',
+    items: [{ to: '/downloads', label: 'Загрузки' }],
+  },
 ]
 
 export default function Sidebar() {
