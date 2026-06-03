@@ -20,6 +20,11 @@ export async function parsePriceXlsx(file) {
   const wsName = wb.SheetNames[0]
   const ws = wb.Sheets[wsName]
   const grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null })
+  // grid[i] maps to ABSOLUTE worksheet row (startRow + i). When the used range
+  // starts below A1 (e.g. "A2:L88"), SheetJS indexes from 0 but the drawing
+  // anchors use absolute 0-based rows — so we must add this offset, otherwise
+  // every image is mismatched by the start offset.
+  const startRow = XLSX.utils.decode_range(ws['!ref'] || 'A1').s.r
 
   // --- 2. Embedded image anchors via JSZip: [{from, to, url}] sorted by row ---
   const anchors = await extractImageAnchors(buf)
@@ -50,7 +55,7 @@ export async function parsePriceXlsx(file) {
     // Always round UP to a whole ruble (никаких копеек, всегда в большую сторону).
     const price = priceNum > 0 ? Math.ceil(priceNum) : 0
 
-    rows.push({ rowIdx: i, section, name, volume: vol, sku: skuStr, price, image: null })
+    rows.push({ rowIdx: startRow + i, section, name, volume: vol, sku: skuStr, price, image: null })
   }
 
   // --- 4. Assign images to products by row span (handles twoCellAnchor
@@ -73,19 +78,34 @@ export async function parsePriceXlsx(file) {
 }
 
 /**
- * Greedily match image anchors to product rows. Each product takes the best
- * still-unused anchor: (1) exact from-row, (2) the anchor whose from..to span
- * contains the row and starts closest above it, (3) nearest by centre (±2 rows).
+ * Match image anchors to product rows in TWO passes:
+ *   Pass 1 — lock every EXACT from-row match. A product whose data row equals
+ *            an image's anchor row owns that image and must never lose it to a
+ *            neighbour's fallback search. This kills the cascade where a volume
+ *            variant without its own anchor steals the next row's photo and
+ *            shifts every image down by one.
+ *   Pass 2 — fill products still without an image using span / nearest-centre
+ *            heuristics among the remaining anchors (variants whose anchor sits
+ *            a row off, or which share a neighbour's photo).
  * Header/decoration images (above the first product row) match nothing.
  */
 function assignImages(products, anchors) {
   const used = new Array(anchors.length).fill(false)
-  const pick = (rowIdx) => {
-    // tier 1 — exact from-row
+
+  // Pass 1 — exact from-row, locked first so nothing can steal it.
+  for (const p of products) {
     for (let k = 0; k < anchors.length; k++) {
-      if (!used[k] && anchors[k].from === rowIdx) return k
+      if (!used[k] && anchors[k].from === p.rowIdx) {
+        p.image = anchors[k].url
+        used[k] = true
+        break
+      }
     }
-    // tier 2 — span contains the row; pick the closest from above
+  }
+
+  // Pass 2 — span / nearest among the leftovers, only for rows still unmatched.
+  const pick = (rowIdx) => {
+    // span contains the row; pick the closest from above
     let best = -1, bestFrom = -Infinity
     for (let k = 0; k < anchors.length; k++) {
       if (used[k]) continue
@@ -93,7 +113,7 @@ function assignImages(products, anchors) {
       if (a.from <= rowIdx && rowIdx <= a.to && a.from > bestFrom) { best = k; bestFrom = a.from }
     }
     if (best >= 0) return best
-    // tier 2b — span ±1 row (twoCellAnchor top-edge can sit a row off)
+    // span ±1 row (twoCellAnchor top-edge can sit a row off)
     best = -1; bestFrom = -Infinity
     for (let k = 0; k < anchors.length; k++) {
       if (used[k]) continue
@@ -101,7 +121,7 @@ function assignImages(products, anchors) {
       if (a.from - 1 <= rowIdx && rowIdx <= a.to + 1 && a.from > bestFrom) { best = k; bestFrom = a.from }
     }
     if (best >= 0) return best
-    // tier 3 — nearest anchor centre within 2 rows
+    // nearest anchor centre within 2 rows
     let bd = 2.5, bk = -1
     for (let k = 0; k < anchors.length; k++) {
       if (used[k]) continue
@@ -112,6 +132,7 @@ function assignImages(products, anchors) {
     return bk
   }
   for (const p of products) {
+    if (p.image) continue
     const k = pick(p.rowIdx)
     if (k >= 0) { p.image = anchors[k].url; used[k] = true }
   }
