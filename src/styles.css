@@ -362,3 +362,18 @@ button { font-family: inherit; }
   .dl-btn { display: none; }
   .dl-name { white-space: normal; }
 }
+
+/* ── Загрузки · папки ────────────────────────────────────── */
+.dl-folders { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 16px; }
+.dl-folders-label { font-size: 13px; font-weight: 700; color: var(--muted); margin-right: 2px; }
+.dl-fchip { appearance: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 999px;
+  border: 1.5px solid var(--line); background: #fff; color: var(--ink-7); transition: .15s ease; }
+.dl-fchip:hover { border-color: var(--bordo); }
+.dl-fchip.on { background: var(--bordo); border-color: var(--bordo); color: #fff; }
+.dl-fchip-c { font-size: 11px; font-weight: 800; background: var(--cream-2); color: var(--bordo);
+  border-radius: 999px; padding: 1px 7px; }
+.dl-fchip.on .dl-fchip-c { background: rgba(255,255,255,.25); color: #fff; }
+.dl-section { margin-top: 22px; }
+.dl-cat { font-size: 15px; font-weight: 800; color: var(--bordo); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+.dl-cat-c { font-size: 12px; font-weight: 700; color: var(--muted); background: var(--cream-2); border-radius: 999px; padding: 1px 9px; }
