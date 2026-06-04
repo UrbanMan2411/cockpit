@@ -377,3 +377,17 @@ button { font-family: inherit; }
 .dl-section { margin-top: 22px; }
 .dl-cat { font-size: 15px; font-weight: 800; color: var(--bordo); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
 .dl-cat-c { font-size: 12px; font-weight: 700; color: var(--muted); background: var(--cream-2); border-radius: 999px; padding: 1px 9px; }
+
+/* ── Загрузки · подпапки ─────────────────────────────────── */
+.dl-subrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
+.dl-sublabel { font-size: 13px; font-weight: 700; color: var(--muted); }
+.dl-subinput { font-family: inherit; font-size: 14px; padding: 8px 12px; border: 1.5px solid var(--line);
+  border-radius: 9px; background: #fff; color: var(--ink); min-width: 220px; }
+.dl-subinput:focus { outline: none; border-color: var(--bordo); box-shadow: 0 0 0 3px rgba(168,38,47,.1); }
+.dl-subchips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.dl-subchip { appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 600;
+  padding: 6px 11px; border-radius: 999px; border: 1px dashed var(--line); background: #fff; color: var(--ink-7); transition: .12s ease; }
+.dl-subchip:hover { border-color: var(--bordo); color: var(--bordo); }
+.dl-subchip.on { border-style: solid; border-color: var(--bordo); background: rgba(168,38,47,.07); color: var(--bordo); }
+.dl-sub { margin-bottom: 6px; }
+.dl-subhead { font-size: 13.5px; font-weight: 700; color: var(--ink-7); margin: 12px 0 6px; display: flex; align-items: center; gap: 8px; }
