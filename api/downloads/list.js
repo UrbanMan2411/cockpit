@@ -9,6 +9,7 @@ export default async function handler(req, res) {
   try {
     const { blobs } = await list()
     const items = blobs
+      .filter((b) => !b.pathname.startsWith('_')) // hide config blobs (_config/…)
       .map((b) => ({ url: b.url, pathname: b.pathname, size: b.size, uploadedAt: b.uploadedAt }))
       .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))
     res.setHeader('Cache-Control', 'no-store')

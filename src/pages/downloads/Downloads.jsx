@@ -1,20 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { upload } from '@vercel/blob/client'
 
-// Folders are Blob path prefixes. One optional sub-folder level is supported:
-// pathname = "<folder>/<sub>/<filename>" or "<folder>/<filename>".
-const FOLDERS = [
+const MISC = { key: 'misc', label: 'Разное' } // built-in fallback for unknown prefixes
+const DEFAULT_FOLDERS = [
   { key: 'prices', label: 'Прайсы' },
   { key: 'cards', label: 'Карточки' },
   { key: 'reports', label: 'Отчёты' },
-  { key: 'misc', label: 'Разное' },
 ]
-const FOLDER_KEYS = new Set(FOLDERS.map((f) => f.key))
-const labelOf = (key) => (FOLDERS.find((f) => f.key === key) || { label: key }).label
 
 const IMG = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'bmp', 'svg'])
 const isImg = (name) => IMG.has((name.split('.').pop() || '').toLowerCase())
-
+const extOf = (name) => (name.split('.').pop() || '').toLowerCase()
 const fmtSize = (b) =>
   b >= 1048576 ? (b / 1048576).toFixed(1) + ' МБ' : b >= 1024 ? Math.round(b / 1024) + ' КБ' : b + ' Б'
 const fmtDate = (s) => {
@@ -22,28 +18,40 @@ const fmtDate = (s) => {
   const p = (n) => String(n).padStart(2, '0')
   return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
-const extOf = (name) => (name.split('.').pop() || '').toLowerCase()
-
-const parsePath = (pathname) => {
-  const seg = pathname.split('/')
-  if (seg.length === 1) return { folder: 'misc', sub: '', name: pathname }
-  if (!FOLDER_KEYS.has(seg[0])) return { folder: 'misc', sub: '', name: pathname }
-  if (seg.length >= 3) return { folder: seg[0], sub: seg[1], name: seg.slice(2).join('/') }
-  return { folder: seg[0], sub: '', name: seg[1] }
-}
 const cleanSub = (s) => s.trim().replace(/[/\\]+/g, '-').replace(/\s+/g, ' ')
 
 export default function Downloads() {
+  const [folders, setFolders] = useState(DEFAULT_FOLDERS)
   const [items, setItems] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [target, setTarget] = useState('cards')
   const [sub, setSub] = useState('')
-  const [lightbox, setLightbox] = useState(null) // { url, name }
+  const [lightbox, setLightbox] = useState(null)
   const inputRef = useRef(null)
 
-  const load = useCallback(async () => {
+  const allFolders = useMemo(() => [...folders, MISC], [folders])
+  const keySet = useMemo(() => new Set(allFolders.map((f) => f.key)), [allFolders])
+  const labelOf = useCallback((key) => allFolders.find((f) => f.key === key)?.label || key, [allFolders])
+
+  const parsePath = useCallback((pathname) => {
+    const seg = pathname.split('/')
+    if (seg.length === 1) return { folder: 'misc', sub: '', name: pathname }
+    if (!keySet.has(seg[0])) return { folder: 'misc', sub: '', name: pathname }
+    if (seg.length >= 3) return { folder: seg[0], sub: seg[1], name: seg.slice(2).join('/') }
+    return { folder: seg[0], sub: '', name: seg[1] }
+  }, [keySet])
+
+  const loadFolders = useCallback(async () => {
+    try {
+      const r = await fetch('/api/downloads/folders')
+      const j = await r.json()
+      if (r.ok && Array.isArray(j.folders)) setFolders(j.folders)
+    } catch { /* keep defaults */ }
+  }, [])
+
+  const loadFiles = useCallback(async () => {
     setError('')
     try {
       const r = await fetch('/api/downloads/list')
@@ -53,9 +61,13 @@ export default function Downloads() {
     } catch (e) { setError('Сеть недоступна: ' + (e.message || e)); setItems([]) }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { loadFolders(); loadFiles() }, [loadFolders, loadFiles])
 
-  // Esc closes lightbox
+  // keep target valid
+  useEffect(() => {
+    if (!allFolders.some((f) => f.key === target)) setTarget(allFolders[0]?.key || 'misc')
+  }, [allFolders, target])
+
   useEffect(() => {
     if (!lightbox) return
     const onKey = (e) => { if (e.key === 'Escape') setLightbox(null) }
@@ -74,22 +86,52 @@ export default function Downloads() {
       } catch (e) { setError(`Не удалось загрузить «${file.name}»: ${e.message || e}`) }
     }
     setBusy('')
-    await load()
-  }, [target, sub, load])
+    await loadFiles()
+  }, [target, sub, loadFiles])
 
   const onDrop = (e) => { e.preventDefault(); setDragOver(false); doUpload(e.dataTransfer.files) }
 
   const remove = useCallback(async (url, name) => {
     if (!window.confirm(`Удалить «${name}»? Файл исчезнет у всех.`)) return
-    setError('')
     try {
       const r = await fetch('/api/downloads/delete', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }),
       })
       if (!r.ok) { const j = await r.json().catch(() => ({})); setError(j.message || 'Не удалось удалить'); return }
-      await load()
+      await loadFiles()
     } catch (e) { setError('Сеть недоступна: ' + (e.message || e)) }
-  }, [load])
+  }, [loadFiles])
+
+  // ── folder management ──
+  const folderAction = useCallback(async (payload) => {
+    const r = await fetch('/api/downloads/folders', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) { setError(j.message || 'Ошибка операции с папкой'); return null }
+    if (Array.isArray(j.folders)) setFolders(j.folders)
+    return j
+  }, [])
+
+  const createFolder = useCallback(async () => {
+    const label = window.prompt('Название новой папки:')
+    if (!label || !label.trim()) return
+    const j = await folderAction({ action: 'create', label: label.trim() })
+    if (j?.created) setTarget(j.created.key)
+  }, [folderAction])
+
+  const renameFolder = useCallback(async (key) => {
+    const cur = allFolders.find((f) => f.key === key)
+    const label = window.prompt('Новое название папки:', cur?.label || '')
+    if (!label || !label.trim()) return
+    await folderAction({ action: 'rename', key, label: label.trim() })
+  }, [folderAction, allFolders])
+
+  const deleteFolder = useCallback(async (key) => {
+    if (!window.confirm('Удалить папку? Удалить можно только пустую.')) return
+    const j = await folderAction({ action: 'delete', key })
+    if (j) setTarget((j.folders?.[0]?.key) || 'misc')
+  }, [folderAction])
 
   const groups = useMemo(() => {
     const by = {}
@@ -101,13 +143,13 @@ export default function Downloads() {
       by[folder].count++
     }
     return by
-  }, [items])
+  }, [items, parsePath])
 
   const counts = useMemo(() => {
     const c = {}
-    for (const f of FOLDERS) c[f.key] = groups[f.key]?.count || 0
+    for (const f of allFolders) c[f.key] = groups[f.key]?.count || 0
     return c
-  }, [groups])
+  }, [groups, allFolders])
 
   const subSuggestions = useMemo(() => {
     const s = new Set(Object.keys(groups[target]?.subs || {}).filter(Boolean))
@@ -131,9 +173,7 @@ export default function Downloads() {
             <div className="dl-name">{it.name}</div>
             <div className="dl-meta">{fmtSize(it.size)} · {fmtDate(it.uploadedAt)}</div>
           </div>
-          {image && (
-            <button className="btn ghost dl-btn" type="button" onClick={() => setLightbox(it)}>👁 Смотреть</button>
-          )}
+          {image && <button className="btn ghost dl-btn" type="button" onClick={() => setLightbox(it)}>👁 Смотреть</button>}
           <a className="btn ghost dl-btn" href={it.url} download={it.name} target="_blank" rel="noreferrer">↓ Скачать</a>
           <button className="dl-del" type="button" title="Удалить" onClick={() => remove(it.url, it.name)}>×</button>
         </div>
@@ -144,18 +184,27 @@ export default function Downloads() {
     <>
       <h1 className="page-title">Загрузки</h1>
       <p className="page-sub">
-        Общее облако для всех выгрузок. Картинки можно смотреть прямо тут, файлы — скачивать. Видно всем и с любого устройства.
+        Общее облако для всех выгрузок. Папки можно создавать и переименовывать. Картинки смотрите прямо тут, файлы — скачивайте.
       </p>
 
       <div className="dl-folders">
-        <span className="dl-folders-label">Загрузить в:</span>
-        {FOLDERS.map((f) => (
+        <span className="dl-folders-label">Папка:</span>
+        {allFolders.map((f) => (
           <button key={f.key} type="button" className={'dl-fchip' + (target === f.key ? ' on' : '')}
             onClick={() => { setTarget(f.key); setSub('') }}>
             {f.label}{counts[f.key] ? <span className="dl-fchip-c">{counts[f.key]}</span> : null}
           </button>
         ))}
+        <button type="button" className="dl-fchip dl-fchip-add" onClick={createFolder}>＋ Папка</button>
       </div>
+
+      {target !== 'misc' && (
+        <div className="dl-manage">
+          Папка «<b>{labelOf(target)}</b>»:
+          <button type="button" className="dl-link" onClick={() => renameFolder(target)}>✎ переименовать</button>
+          <button type="button" className="dl-link dl-link-del" onClick={() => deleteFolder(target)}>× удалить</button>
+        </div>
+      )}
 
       <div className="dl-subrow">
         <span className="dl-sublabel">Подпапка:</span>
@@ -198,7 +247,7 @@ export default function Downloads() {
         <div className="card" style={{ marginTop: 20 }}><p style={{ margin: 0, color: 'var(--muted)' }}>Пока пусто — загрузите первый файл выше.</p></div>
       )}
 
-      {FOLDERS.map((f) => {
+      {allFolders.map((f) => {
         const g = groups[f.key]
         if (!g || !g.count) return null
         const subKeys = Object.keys(g.subs).sort((a, b) => (a ? 1 : 0) - (b ? 1 : 0) || a.localeCompare(b, 'ru'))

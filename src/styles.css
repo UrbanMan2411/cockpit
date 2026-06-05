@@ -412,3 +412,12 @@ button { font-family: inherit; }
 @media (max-width: 640px) {
   .dl-row { grid-template-columns: 44px 1fr auto; }
 }
+
+/* ── Загрузки · управление папками ───────────────────────── */
+.dl-fchip-add { border-style: dashed; color: var(--bordo); font-weight: 700; }
+.dl-fchip-add:hover { background: rgba(168,38,47,.06); border-color: var(--bordo); }
+.dl-manage { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: -4px 0 16px; font-size: 13.5px; color: var(--ink-7); }
+.dl-link { appearance: none; border: 0; background: none; cursor: pointer; font-family: inherit; font-size: 13.5px;
+  font-weight: 600; color: var(--bordo); padding: 2px 0; }
+.dl-link:hover { text-decoration: underline; }
+.dl-link-del { color: #c9302c; }
