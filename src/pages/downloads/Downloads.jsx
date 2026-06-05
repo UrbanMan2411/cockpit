@@ -114,9 +114,16 @@ export default function Downloads() {
 
   const renameFile = useCallback(async (it) => {
     const { folder, sub } = parsePath(it.pathname)
-    const next = window.prompt('Новое имя файла:', it.name)
-    if (!next || !next.trim() || next.trim() === it.name) return
-    const toPathname = `${folder}${sub ? '/' + sub : ''}/${next.trim()}`
+    const m = it.name.match(/\.([^.\/]+)$/)
+    const origExt = m ? m[1] : ''
+    const input = window.prompt('Новое имя файла:', it.name)
+    if (!input || !input.trim()) return
+    let next = input.trim()
+    // keep the original extension if the user dropped it — otherwise the file
+    // stops being recognised as an image and the preview disappears
+    if (origExt && !/\.[^.\/]+$/.test(next)) next = `${next}.${origExt}`
+    if (next === it.name) return
+    const toPathname = `${folder}${sub ? '/' + sub : ''}/${next}`
     await moveBlob(it.url, it.pathname, toPathname)
   }, [parsePath, moveBlob])
 
