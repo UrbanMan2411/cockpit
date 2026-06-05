@@ -421,3 +421,21 @@ button { font-family: inherit; }
   font-weight: 600; color: var(--bordo); padding: 2px 0; }
 .dl-link:hover { text-decoration: underline; }
 .dl-link-del { color: #c9302c; }
+
+/* ── Загрузки · действия со строкой + диалог перемещения ─── */
+.dl-row { grid-template-columns: 52px 1fr auto auto auto auto auto; }
+.dl-act { appearance: none; border: 0; background: transparent; cursor: pointer; color: var(--muted);
+  font-size: 15px; line-height: 1; border-radius: 7px; width: 30px; height: 30px; transition: .12s ease; }
+.dl-act:hover { background: var(--cream-2); color: var(--bordo); }
+.dl-btn { padding: 7px 10px; font-size: 13px; }
+
+.dl-modal { width: min(92vw, 520px); background: #fff; border-radius: 14px; padding: 22px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+.dl-modal-h { margin: 0 0 16px; font-size: 17px; color: var(--bordo); }
+.dl-modal-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.dl-modal-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.dl-modal-path { font-size: 12.5px; color: var(--muted); font-weight: 600; word-break: break-all; }
+@media (max-width: 640px) {
+  .dl-row { grid-template-columns: 44px 1fr auto auto; }
+}

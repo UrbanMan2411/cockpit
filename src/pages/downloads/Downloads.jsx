@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { upload } from '@vercel/blob/client'
 
-const MISC = { key: 'misc', label: 'Разное' } // built-in fallback for unknown prefixes
+const MISC = { key: 'misc', label: 'Разное' }
 const DEFAULT_FOLDERS = [
   { key: 'prices', label: 'Прайсы' },
   { key: 'cards', label: 'Карточки' },
@@ -29,6 +29,9 @@ export default function Downloads() {
   const [target, setTarget] = useState('cards')
   const [sub, setSub] = useState('')
   const [lightbox, setLightbox] = useState(null)
+  const [moving, setMoving] = useState(null)       // item being moved
+  const [moveFolder, setMoveFolder] = useState('') // dest folder in move dialog
+  const [moveSub, setMoveSub] = useState('')       // dest sub in move dialog
   const inputRef = useRef(null)
 
   const allFolders = useMemo(() => [...folders, MISC], [folders])
@@ -45,8 +48,7 @@ export default function Downloads() {
 
   const loadFolders = useCallback(async () => {
     try {
-      const r = await fetch('/api/downloads/folders')
-      const j = await r.json()
+      const r = await fetch('/api/downloads/folders'); const j = await r.json()
       if (r.ok && Array.isArray(j.folders)) setFolders(j.folders)
     } catch { /* keep defaults */ }
   }, [])
@@ -62,31 +64,25 @@ export default function Downloads() {
   }, [])
 
   useEffect(() => { loadFolders(); loadFiles() }, [loadFolders, loadFiles])
-
-  // keep target valid
   useEffect(() => {
     if (!allFolders.some((f) => f.key === target)) setTarget(allFolders[0]?.key || 'misc')
   }, [allFolders, target])
-
   useEffect(() => {
-    if (!lightbox) return
-    const onKey = (e) => { if (e.key === 'Escape') setLightbox(null) }
+    if (!lightbox && !moving) return
+    const onKey = (e) => { if (e.key === 'Escape') { setLightbox(null); setMoving(null) } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [lightbox])
+  }, [lightbox, moving])
 
   const doUpload = useCallback(async (files) => {
-    const arr = Array.from(files || [])
-    const s = cleanSub(sub)
+    const arr = Array.from(files || []); const s = cleanSub(sub)
     for (const file of arr) {
       setBusy(file.name)
       const path = s ? `${target}/${s}/${file.name}` : `${target}/${file.name}`
-      try {
-        await upload(path, file, { access: 'public', handleUploadUrl: '/api/downloads/upload' })
-      } catch (e) { setError(`Не удалось загрузить «${file.name}»: ${e.message || e}`) }
+      try { await upload(path, file, { access: 'public', handleUploadUrl: '/api/downloads/upload' }) }
+      catch (e) { setError(`Не удалось загрузить «${file.name}»: ${e.message || e}`) }
     }
-    setBusy('')
-    await loadFiles()
+    setBusy(''); await loadFiles()
   }, [target, sub, loadFiles])
 
   const onDrop = (e) => { e.preventDefault(); setDragOver(false); doUpload(e.dataTransfer.files) }
@@ -102,7 +98,42 @@ export default function Downloads() {
     } catch (e) { setError('Сеть недоступна: ' + (e.message || e)) }
   }, [loadFiles])
 
-  // ── folder management ──
+  // copy→delete on the server
+  const moveBlob = useCallback(async (fromUrl, fromPathname, toPathname) => {
+    if (fromPathname === toPathname) return true
+    try {
+      const r = await fetch('/api/downloads/move', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromUrl, fromPathname, toPathname }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { setError(j.message || 'Не удалось переместить'); return false }
+      await loadFiles(); return true
+    } catch (e) { setError('Сеть недоступна: ' + (e.message || e)); return false }
+  }, [loadFiles])
+
+  const renameFile = useCallback(async (it) => {
+    const { folder, sub } = parsePath(it.pathname)
+    const next = window.prompt('Новое имя файла:', it.name)
+    if (!next || !next.trim() || next.trim() === it.name) return
+    const toPathname = `${folder}${sub ? '/' + sub : ''}/${next.trim()}`
+    await moveBlob(it.url, it.pathname, toPathname)
+  }, [parsePath, moveBlob])
+
+  const openMove = useCallback((it) => {
+    const { folder, sub } = parsePath(it.pathname)
+    setMoving(it); setMoveFolder(folder); setMoveSub(sub)
+  }, [parsePath])
+
+  const confirmMove = useCallback(async () => {
+    if (!moving) return
+    const s = cleanSub(moveSub)
+    const toPathname = `${moveFolder}${s ? '/' + s : ''}/${moving.name}`
+    const ok = await moveBlob(moving.url, moving.pathname, toPathname)
+    if (ok) setMoving(null)
+  }, [moving, moveFolder, moveSub, moveBlob])
+
+  // ── folders ──
   const folderAction = useCallback(async (payload) => {
     const r = await fetch('/api/downloads/folders', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
@@ -112,25 +143,18 @@ export default function Downloads() {
     if (Array.isArray(j.folders)) setFolders(j.folders)
     return j
   }, [])
-
   const createFolder = useCallback(async () => {
-    const label = window.prompt('Название новой папки:')
-    if (!label || !label.trim()) return
-    const j = await folderAction({ action: 'create', label: label.trim() })
-    if (j?.created) setTarget(j.created.key)
+    const label = window.prompt('Название новой папки:'); if (!label || !label.trim()) return
+    const j = await folderAction({ action: 'create', label: label.trim() }); if (j?.created) setTarget(j.created.key)
   }, [folderAction])
-
   const renameFolder = useCallback(async (key) => {
     const cur = allFolders.find((f) => f.key === key)
-    const label = window.prompt('Новое название папки:', cur?.label || '')
-    if (!label || !label.trim()) return
+    const label = window.prompt('Новое название папки:', cur?.label || ''); if (!label || !label.trim()) return
     await folderAction({ action: 'rename', key, label: label.trim() })
   }, [folderAction, allFolders])
-
   const deleteFolder = useCallback(async (key) => {
     if (!window.confirm('Удалить папку? Удалить можно только пустую.')) return
-    const j = await folderAction({ action: 'delete', key })
-    if (j) setTarget((j.folders?.[0]?.key) || 'misc')
+    const j = await folderAction({ action: 'delete', key }); if (j) setTarget((j.folders?.[0]?.key) || 'misc')
   }, [folderAction])
 
   const groups = useMemo(() => {
@@ -146,9 +170,7 @@ export default function Downloads() {
   }, [items, parsePath])
 
   const counts = useMemo(() => {
-    const c = {}
-    for (const f of allFolders) c[f.key] = groups[f.key]?.count || 0
-    return c
+    const c = {}; for (const f of allFolders) c[f.key] = groups[f.key]?.count || 0; return c
   }, [groups, allFolders])
 
   const subSuggestions = useMemo(() => {
@@ -156,12 +178,16 @@ export default function Downloads() {
     return [...s].sort((a, b) => a.localeCompare(b, 'ru'))
   }, [groups, target])
 
+  const moveSubSuggestions = useMemo(() => {
+    const s = new Set(Object.keys(groups[moveFolder]?.subs || {}).filter(Boolean))
+    return [...s].sort((a, b) => a.localeCompare(b, 'ru'))
+  }, [groups, moveFolder])
+
   const renderRows = (list) =>
     list.map((it) => {
-      const ext = extOf(it.name)
-      const image = isImg(it.name)
+      const ext = extOf(it.name); const image = isImg(it.name)
       return (
-        <div className="dl-row" key={it.url}>
+        <div className="dl-row" key={it.pathname}>
           {image ? (
             <button className="dl-thumb-btn" type="button" title="Посмотреть" onClick={() => setLightbox(it)}>
               <img className="dl-thumb" src={it.url} alt={it.name} loading="lazy" />
@@ -173,8 +199,10 @@ export default function Downloads() {
             <div className="dl-name">{it.name}</div>
             <div className="dl-meta">{fmtSize(it.size)} · {fmtDate(it.uploadedAt)}</div>
           </div>
-          {image && <button className="btn ghost dl-btn" type="button" onClick={() => setLightbox(it)}>👁 Смотреть</button>}
-          <a className="btn ghost dl-btn" href={it.url} download={it.name} target="_blank" rel="noreferrer">↓ Скачать</a>
+          {image && <button className="btn ghost dl-btn" type="button" onClick={() => setLightbox(it)}>👁</button>}
+          <a className="btn ghost dl-btn" href={it.url} download={it.name} target="_blank" rel="noreferrer">↓</a>
+          <button className="dl-act" type="button" title="Переименовать" onClick={() => renameFile(it)}>✎</button>
+          <button className="dl-act" type="button" title="Переместить" onClick={() => openMove(it)}>⇄</button>
           <button className="dl-del" type="button" title="Удалить" onClick={() => remove(it.url, it.name)}>×</button>
         </div>
       )
@@ -184,7 +212,7 @@ export default function Downloads() {
     <>
       <h1 className="page-title">Загрузки</h1>
       <p className="page-sub">
-        Общее облако для всех выгрузок. Папки можно создавать и переименовывать. Картинки смотрите прямо тут, файлы — скачивайте.
+        Общее облако. Папки создавайте и переименовывайте; файлы можно переименовать (✎) и переместить (⇄) между папками.
       </p>
 
       <div className="dl-folders">
@@ -248,8 +276,7 @@ export default function Downloads() {
       )}
 
       {allFolders.map((f) => {
-        const g = groups[f.key]
-        if (!g || !g.count) return null
+        const g = groups[f.key]; if (!g || !g.count) return null
         const subKeys = Object.keys(g.subs).sort((a, b) => (a ? 1 : 0) - (b ? 1 : 0) || a.localeCompare(b, 'ru'))
         return (
           <section key={f.key} className="dl-section">
@@ -274,6 +301,36 @@ export default function Downloads() {
             </div>
           </div>
           <button className="dl-lb-close" type="button" onClick={() => setLightbox(null)} title="Закрыть (Esc)">×</button>
+        </div>
+      )}
+
+      {moving && (
+        <div className="dl-lb" onClick={() => setMoving(null)}>
+          <div className="dl-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="dl-modal-h">Переместить «{moving.name}»</h3>
+            <div className="dl-modal-row">
+              <span className="dl-sublabel">Папка:</span>
+              <span className="dl-subchips">
+                {allFolders.map((f) => (
+                  <button key={f.key} type="button" className={'dl-subchip' + (moveFolder === f.key ? ' on' : '')}
+                    onClick={() => { setMoveFolder(f.key); setMoveSub('') }}>{f.label}</button>
+                ))}
+              </span>
+            </div>
+            <div className="dl-modal-row">
+              <span className="dl-sublabel">Подпапка:</span>
+              <input className="dl-subinput" list="dl-move-sub" value={moveSub}
+                placeholder="необязательно" onChange={(e) => setMoveSub(e.target.value)} />
+              <datalist id="dl-move-sub">{moveSubSuggestions.map((s) => <option key={s} value={s} />)}</datalist>
+            </div>
+            <div className="dl-modal-foot">
+              <span className="dl-modal-path">→ {labelOf(moveFolder)}{cleanSub(moveSub) ? ` / ${cleanSub(moveSub)}` : ''} / {moving.name}</span>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn ghost" type="button" onClick={() => setMoving(null)}>Отмена</button>
+                <button className="btn" type="button" onClick={confirmMove}>Переместить</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </>
