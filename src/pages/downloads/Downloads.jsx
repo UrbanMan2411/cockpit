@@ -34,7 +34,26 @@ export default function Downloads() {
   const [moveSub, setMoveSub] = useState('')       // dest sub in move dialog
   const inputRef = useRef(null)
 
-  const allFolders = useMemo(() => [...folders, MISC], [folders])
+  // top-level prefixes actually present in the files (self-healing: a folder
+  // that has files always shows, even if it dropped out of the registry)
+  const filePrefixes = useMemo(() => {
+    const s = new Set()
+    for (const it of items || []) {
+      const i = it.pathname.indexOf('/')
+      if (i > 0) s.add(it.pathname.slice(0, i))
+    }
+    return s
+  }, [items])
+
+  const allFolders = useMemo(() => {
+    const regKeys = new Set(folders.map((f) => f.key))
+    const extra = [...filePrefixes]
+      .filter((p) => p !== 'misc' && !regKeys.has(p))
+      .sort((a, b) => a.localeCompare(b, 'ru'))
+      .map((p) => ({ key: p, label: p.charAt(0).toUpperCase() + p.slice(1) }))
+    return [...folders, ...extra, MISC]
+  }, [folders, filePrefixes])
+
   const keySet = useMemo(() => new Set(allFolders.map((f) => f.key)), [allFolders])
   const labelOf = useCallback((key) => allFolders.find((f) => f.key === key)?.label || key, [allFolders])
 

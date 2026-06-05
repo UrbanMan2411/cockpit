@@ -7,9 +7,13 @@
 // POST { action:'create', label }                  → add a folder
 // POST { action:'rename', key, label }             → change a folder's label
 // POST { action:'delete', key }                    → remove an empty folder
-import { list, put } from '@vercel/blob'
+import { list, put, del } from '@vercel/blob'
 
-const CONFIG = '_config/folders.json'
+// Registry is written with a random suffix each time → each version has its own
+// immutable URL. Reads pick the NEWEST version (by uploadedAt) and fetch its
+// immutable URL, which is never stale (unlike overwriting one fixed pathname,
+// where the Blob CDN can keep serving the old content for a while).
+const PREFIX = '_config/folders'
 const DEFAULTS = [
   { key: 'prices', label: 'Прайсы' },
   { key: 'cards', label: 'Карточки' },
@@ -17,20 +21,25 @@ const DEFAULTS = [
 ]
 
 async function readRegistry() {
-  const { blobs } = await list({ prefix: CONFIG })
-  const b = blobs.find((x) => x.pathname === CONFIG)
-  if (!b) return null
+  const { blobs } = await list({ prefix: PREFIX })
+  if (!blobs.length) return null
+  blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))
+  const newest = blobs[0]
+  let folders = null
   try {
-    const r = await fetch(b.url + '?ts=' + Math.random().toString(36).slice(2), { cache: 'no-store' })
-    if (!r.ok) return null
-    const j = await r.json()
-    return Array.isArray(j.folders) ? j.folders : null
-  } catch { return null }
+    const r = await fetch(newest.url, { cache: 'no-store' })
+    if (r.ok) { const j = await r.json(); if (Array.isArray(j.folders)) folders = j.folders }
+  } catch { /* fall through */ }
+  // best-effort cleanup of superseded versions
+  if (blobs.length > 1) {
+    for (const old of blobs.slice(1)) { try { await del(old.url) } catch { /* ignore */ } }
+  }
+  return folders
 }
 
 async function writeRegistry(folders) {
-  await put(CONFIG, JSON.stringify({ folders }), {
-    access: 'public', allowOverwrite: true, contentType: 'application/json',
+  await put(PREFIX + '.json', JSON.stringify({ folders }), {
+    access: 'public', addRandomSuffix: true, contentType: 'application/json',
   })
 }
 
@@ -67,11 +76,12 @@ export default async function handler(req, res) {
       }
 
       if (action === 'rename') {
-        const f = folders.find((x) => x.key === body.key)
-        if (!f) return res.status(404).json({ error: 'not_found' })
         const label = (body.label || '').trim()
         if (!label) return res.status(400).json({ error: 'no_label', message: 'Введите название.' })
-        f.label = label
+        const f = folders.find((x) => x.key === body.key)
+        if (f) f.label = label
+        else if (body.key) folders.push({ key: body.key, label }) // upsert self-healed folder
+        else return res.status(404).json({ error: 'not_found' })
         await writeRegistry(folders)
         return res.status(200).json({ folders })
       }
