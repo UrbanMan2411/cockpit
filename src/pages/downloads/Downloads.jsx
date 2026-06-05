@@ -12,6 +12,9 @@ const FOLDERS = [
 const FOLDER_KEYS = new Set(FOLDERS.map((f) => f.key))
 const labelOf = (key) => (FOLDERS.find((f) => f.key === key) || { label: key }).label
 
+const IMG = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'bmp', 'svg'])
+const isImg = (name) => IMG.has((name.split('.').pop() || '').toLowerCase())
+
 const fmtSize = (b) =>
   b >= 1048576 ? (b / 1048576).toFixed(1) + ' МБ' : b >= 1024 ? Math.round(b / 1024) + ' КБ' : b + ' Б'
 const fmtDate = (s) => {
@@ -21,7 +24,6 @@ const fmtDate = (s) => {
 }
 const extOf = (name) => (name.split('.').pop() || '').toLowerCase()
 
-// split pathname → { folder, sub, name }
 const parsePath = (pathname) => {
   const seg = pathname.split('/')
   if (seg.length === 1) return { folder: 'misc', sub: '', name: pathname }
@@ -36,8 +38,9 @@ export default function Downloads() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
   const [dragOver, setDragOver] = useState(false)
-  const [target, setTarget] = useState('cards') // upload destination folder
-  const [sub, setSub] = useState('')             // optional sub-folder
+  const [target, setTarget] = useState('cards')
+  const [sub, setSub] = useState('')
+  const [lightbox, setLightbox] = useState(null) // { url, name }
   const inputRef = useRef(null)
 
   const load = useCallback(async () => {
@@ -52,6 +55,14 @@ export default function Downloads() {
 
   useEffect(() => { load() }, [load])
 
+  // Esc closes lightbox
+  useEffect(() => {
+    if (!lightbox) return
+    const onKey = (e) => { if (e.key === 'Escape') setLightbox(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightbox])
+
   const doUpload = useCallback(async (files) => {
     const arr = Array.from(files || [])
     const s = cleanSub(sub)
@@ -60,9 +71,7 @@ export default function Downloads() {
       const path = s ? `${target}/${s}/${file.name}` : `${target}/${file.name}`
       try {
         await upload(path, file, { access: 'public', handleUploadUrl: '/api/downloads/upload' })
-      } catch (e) {
-        setError(`Не удалось загрузить «${file.name}»: ${e.message || e}`)
-      }
+      } catch (e) { setError(`Не удалось загрузить «${file.name}»: ${e.message || e}`) }
     }
     setBusy('')
     await load()
@@ -82,7 +91,6 @@ export default function Downloads() {
     } catch (e) { setError('Сеть недоступна: ' + (e.message || e)) }
   }, [load])
 
-  // group by folder → sub
   const groups = useMemo(() => {
     const by = {}
     for (const it of items || []) {
@@ -101,7 +109,6 @@ export default function Downloads() {
     return c
   }, [groups])
 
-  // sub-folder suggestions for the currently selected target
   const subSuggestions = useMemo(() => {
     const s = new Set(Object.keys(groups[target]?.subs || {}).filter(Boolean))
     return [...s].sort((a, b) => a.localeCompare(b, 'ru'))
@@ -110,13 +117,23 @@ export default function Downloads() {
   const renderRows = (list) =>
     list.map((it) => {
       const ext = extOf(it.name)
+      const image = isImg(it.name)
       return (
         <div className="dl-row" key={it.url}>
-          <span className={'dl-ext dl-' + (ext || 'file')}>{ext || 'file'}</span>
+          {image ? (
+            <button className="dl-thumb-btn" type="button" title="Посмотреть" onClick={() => setLightbox(it)}>
+              <img className="dl-thumb" src={it.url} alt={it.name} loading="lazy" />
+            </button>
+          ) : (
+            <span className={'dl-ext dl-' + (ext || 'file')}>{ext || 'file'}</span>
+          )}
           <div className="dl-info">
             <div className="dl-name">{it.name}</div>
             <div className="dl-meta">{fmtSize(it.size)} · {fmtDate(it.uploadedAt)}</div>
           </div>
+          {image && (
+            <button className="btn ghost dl-btn" type="button" onClick={() => setLightbox(it)}>👁 Смотреть</button>
+          )}
           <a className="btn ghost dl-btn" href={it.url} download={it.name} target="_blank" rel="noreferrer">↓ Скачать</a>
           <button className="dl-del" type="button" title="Удалить" onClick={() => remove(it.url, it.name)}>×</button>
         </div>
@@ -127,18 +144,14 @@ export default function Downloads() {
     <>
       <h1 className="page-title">Загрузки</h1>
       <p className="page-sub">
-        Общее облако для всех выгрузок. Файлы видны всем и с любого устройства. Выберите папку (и при желании подпапку) — и загрузите файлы.
+        Общее облако для всех выгрузок. Картинки можно смотреть прямо тут, файлы — скачивать. Видно всем и с любого устройства.
       </p>
 
       <div className="dl-folders">
         <span className="dl-folders-label">Загрузить в:</span>
         {FOLDERS.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            className={'dl-fchip' + (target === f.key ? ' on' : '')}
-            onClick={() => { setTarget(f.key); setSub('') }}
-          >
+          <button key={f.key} type="button" className={'dl-fchip' + (target === f.key ? ' on' : '')}
+            onClick={() => { setTarget(f.key); setSub('') }}>
             {f.label}{counts[f.key] ? <span className="dl-fchip-c">{counts[f.key]}</span> : null}
           </button>
         ))}
@@ -146,16 +159,9 @@ export default function Downloads() {
 
       <div className="dl-subrow">
         <span className="dl-sublabel">Подпапка:</span>
-        <input
-          className="dl-subinput"
-          list="dl-sub-suggest"
-          value={sub}
-          placeholder={`напр. Антижир — необязательно`}
-          onChange={(e) => setSub(e.target.value)}
-        />
-        <datalist id="dl-sub-suggest">
-          {subSuggestions.map((s) => <option key={s} value={s} />)}
-        </datalist>
+        <input className="dl-subinput" list="dl-sub-suggest" value={sub}
+          placeholder="напр. Туалет — необязательно" onChange={(e) => setSub(e.target.value)} />
+        <datalist id="dl-sub-suggest">{subSuggestions.map((s) => <option key={s} value={s} />)}</datalist>
         {subSuggestions.length > 0 && (
           <span className="dl-subchips">
             {subSuggestions.map((s) => (
@@ -171,15 +177,11 @@ export default function Downloads() {
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
         onClick={() => !busy && inputRef.current?.click()}
-        role="button"
-        tabIndex={0}
+        role="button" tabIndex={0}
       >
         <input ref={inputRef} type="file" multiple hidden onChange={(e) => doUpload(e.target.files)} />
         {busy ? (
-          <>
-            <div className="drop-title">Загружаю «{busy}»…</div>
-            <div className="drop-sub">не закрывайте вкладку</div>
-          </>
+          <><div className="drop-title">Загружаю «{busy}»…</div><div className="drop-sub">не закрывайте вкладку</div></>
         ) : (
           <>
             <div className="drop-icon">⬆</div>
@@ -212,6 +214,19 @@ export default function Downloads() {
           </section>
         )
       })}
+
+      {lightbox && (
+        <div className="dl-lb" onClick={() => setLightbox(null)}>
+          <div className="dl-lb-box" onClick={(e) => e.stopPropagation()}>
+            <img className="dl-lb-img" src={lightbox.url} alt={lightbox.name} />
+            <div className="dl-lb-bar">
+              <span className="dl-lb-name">{lightbox.name}</span>
+              <a className="btn ghost dl-btn" href={lightbox.url} download={lightbox.name} target="_blank" rel="noreferrer">↓ Скачать</a>
+            </div>
+          </div>
+          <button className="dl-lb-close" type="button" onClick={() => setLightbox(null)} title="Закрыть (Esc)">×</button>
+        </div>
+      )}
     </>
   )
 }
