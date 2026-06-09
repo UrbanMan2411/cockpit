@@ -40,6 +40,45 @@ function SkuReport() {
   )
 }
 
+function WeeklyReport() {
+  const [status, setStatus] = useState('idle')
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
+  const run = async () => {
+    setStatus('loading'); setError('')
+    try {
+      const r = await fetch('/api/reports/weekly', { method: 'POST' })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { setError(j.message || 'Ошибка сбора отчёта'); setStatus('error'); return }
+      setResult(j); setStatus('done')
+    } catch (e) { setError('Сеть недоступна: ' + (e.message || e)); setStatus('error') }
+  }
+  return (
+    <div className="card">
+      <h3>Отчёт за неделю · динамика</h3>
+      <p>
+        Что выросло и что просело: выручка по SKU за последние 7 дней против предыдущих 7.
+        Лист «Движение» отсортирован от роста к падению. Файл — в <b>Загрузки → Отчёты</b>.
+      </p>
+      <button className="btn" onClick={run} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Считаю динамику…' : '📈 Отчёт за неделю'}
+      </button>
+      {status === 'done' && result && (
+        <p style={{ marginTop: 12, fontSize: 13.5 }}>
+          ✓ Выручка <b>{(result.curAll || 0).toLocaleString('ru-RU')} ₽</b>{' '}
+          <b style={{ color: (result.deltaPct >= 0 ? 'var(--green-7)' : '#c9302c') }}>
+            {result.deltaPct >= 0 ? '▲ +' : '▼ '}{result.deltaPct}%
+          </b>{' '}к прошлой неделе. Выросло {result.up} · просело {result.down}.{' '}
+          <a href={result.url} download target="_blank" rel="noreferrer">Скачать xlsx</a>
+          {(result.topUp?.length > 0) && <span style={{ color: 'var(--muted)' }}><br />↑ {result.topUp.join('; ')}</span>}
+          {(result.topDown?.length > 0) && <span style={{ color: 'var(--muted)' }}><br />↓ {result.topDown.join('; ')}</span>}
+        </p>
+      )}
+      {status === 'error' && <p style={{ color: '#c9302c', marginTop: 12, fontSize: 13.5 }}>{error}</p>}
+    </div>
+  )
+}
+
 const BRIEF = [
   ['Рост категории на МП', 'WB: бытовая химия — заказы за год выросли ~2× (сент.24 ≈ 5.0 млн → сент.25 ≈ 10.7 млн). SKU 46→138 тыс., продавцов 4.6→10.3 тыс. Рынок растёт, конкуренция тоже.'],
   ['Самые быстрорастущие подкатегории', 'Освежители/нейтрализаторы запахов +126%, чистящие +86%, средства для стирки +62%. Стирка — крупнейшая категория, далее посуда, кухня/сантехника.'],
@@ -96,7 +135,10 @@ export default function Analytics() {
       <h2 style={{ fontSize: 16, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '.08em', margin: '8px 0 12px' }}>
         Сводные отчёты
       </h2>
-      <SkuReport />
+      <div className="cards-grid">
+        <SkuReport />
+        <WeeklyReport />
+      </div>
 
       <h2 style={{ fontSize: 16, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '.08em', margin: '8px 0 12px' }}>
         Скрипты и шаблоны
