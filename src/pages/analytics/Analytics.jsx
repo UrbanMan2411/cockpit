@@ -1,4 +1,42 @@
-import React from 'react'
+import React, { useState } from 'react'
+
+function SkuReport() {
+  const [status, setStatus] = useState('idle') // idle | loading | done | error
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
+  const run = async () => {
+    setStatus('loading'); setError('')
+    try {
+      const r = await fetch('/api/reports/sku', { method: 'POST' })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { setError(j.message || 'Ошибка сбора отчёта'); setStatus('error'); return }
+      setResult(j); setStatus('done')
+    } catch (e) { setError('Сеть недоступна: ' + (e.message || e)); setStatus('error') }
+  }
+  return (
+    <div className="card">
+      <h3>База SKU · WB + Ozon</h3>
+      <p>
+        Свежая таблица по всем товарам за 30 дней: выручка, заказы, показы, конверсия, выкуп, остатки, рейтинг.
+        Файл сохраняется в <b>Загрузки → Отчёты</b>.
+      </p>
+      <button className="btn" onClick={run} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Собираю данные…' : '📊 Собрать базу SKU'}
+      </button>
+      {status === 'done' && result && (
+        <p style={{ marginTop: 12, fontSize: 13.5 }}>
+          ✓ Готово: <b>{result.total}</b> SKU (WB {result.wb} · Ozon {result.oz}), выручка{' '}
+          <b>{(result.revenue || 0).toLocaleString('ru-RU')} ₽</b>.{' '}
+          <a href={result.url} download target="_blank" rel="noreferrer">Скачать xlsx</a>
+          {(result.wbErr || result.ozErr) && (
+            <span style={{ color: '#8a6914' }}><br />⚠ {[result.wbErr && 'WB: ' + result.wbErr, result.ozErr && 'Ozon: ' + result.ozErr].filter(Boolean).join('; ')}</span>
+          )}
+        </p>
+      )}
+      {status === 'error' && <p style={{ color: '#c9302c', marginTop: 12, fontSize: 13.5 }}>{error}</p>}
+    </div>
+  )
+}
 
 const BRIEF = [
   ['Рост категории на МП', 'WB: бытовая химия — заказы за год выросли ~2× (сент.24 ≈ 5.0 млн → сент.25 ≈ 10.7 млн). SKU 46→138 тыс., продавцов 4.6→10.3 тыс. Рынок растёт, конкуренция тоже.'],
@@ -52,6 +90,11 @@ export default function Analytics() {
     <>
       <h1 className="page-title">Анализ рынка</h1>
       <p className="page-sub">Дашборд-шаблон, скрипты выгрузки и тренд-бриф 2025–2026.</p>
+
+      <h2 style={{ fontSize: 16, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '.08em', margin: '8px 0 12px' }}>
+        Сводные отчёты
+      </h2>
+      <SkuReport />
 
       <h2 style={{ fontSize: 16, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '.08em', margin: '8px 0 12px' }}>
         Скрипты и шаблоны
