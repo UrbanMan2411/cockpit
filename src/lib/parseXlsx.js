@@ -48,6 +48,11 @@ export async function parsePriceXlsx(file) {
     if (!name || !skuStr) continue
 
     const vol = typeof r[3] === 'number' ? `${r[3]} л` : norm(r[3])
+    // cols (0-based): 5 штрих-код | 6 паллет | 7 в коробе | 8 цена
+    const cell = (v) => (typeof v === 'number' ? String(v) : norm(v))
+    const barcode = cell(r[5])
+    const pallet = cell(r[6])
+    const perBox = cell(r[7])
     const priceRaw = r[8]
     const priceNum = typeof priceRaw === 'number'
       ? priceRaw
@@ -55,7 +60,7 @@ export async function parsePriceXlsx(file) {
     // Always round UP to a whole ruble (никаких копеек, всегда в большую сторону).
     const price = priceNum > 0 ? Math.ceil(priceNum) : 0
 
-    rows.push({ rowIdx: startRow + i, section, name, volume: vol, sku: skuStr, price, image: null })
+    rows.push({ rowIdx: startRow + i, section, name, volume: vol, sku: skuStr, barcode, perBox, pallet, price, image: null })
   }
 
   // --- 4. Assign images to products by row span (handles twoCellAnchor

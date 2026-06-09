@@ -17,7 +17,7 @@ function rowsToItems(rows) {
       sec = r.section
       items.push({ type: 'section', _id: newId(), name: sec || '' })
     }
-    items.push({ type: 'row', _id: newId(), name: r.name, volume: r.volume, sku: r.sku, price: r.price, image: r.image })
+    items.push({ type: 'row', _id: newId(), name: r.name, volume: r.volume, sku: r.sku, barcode: r.barcode || '', perBox: r.perBox || '', pallet: r.pallet || '', price: r.price, image: r.image })
   }
   return items
 }
@@ -27,12 +27,12 @@ function itemsToRows(items) {
   let sec = ''
   for (const it of items) {
     if (it.type === 'section') sec = it.name
-    else rows.push({ section: sec, name: it.name, volume: it.volume, sku: it.sku, price: it.price, image: it.image })
+    else rows.push({ section: sec, name: it.name, volume: it.volume, sku: it.sku, barcode: it.barcode, perBox: it.perBox, pallet: it.pallet, price: it.price, image: it.image })
   }
   return rows
 }
 
-const blankRow = () => ({ type: 'row', _id: newId(), name: '', volume: '', sku: '', price: 0, image: null })
+const blankRow = () => ({ type: 'row', _id: newId(), name: '', volume: '', sku: '', barcode: '', perBox: '', pallet: '', price: 0, image: null })
 
 /**
  * Reusable price-list generator UI. Drop xlsx → edit (inline / add / delete /
@@ -240,6 +240,7 @@ export default function GeneratorPanel({ title, sub, brand, bgSwatch, downloadNa
             <div className="ed-cols">
               <span /><span>Фото</span><span>Наименование</span>
               <span className="ed-c">Объём</span><span className="ed-c">Артикул</span>
+              <span className="ed-c">Штрих-код</span><span className="ed-c">В коробе</span><span className="ed-c">Паллет</span>
               <span className="ed-r">Цена ₽</span><span />
             </div>
 
@@ -279,6 +280,12 @@ export default function GeneratorPanel({ title, sub, brand, bgSwatch, downloadNa
                                   onChange={(e) => updateItem(it._id, 'volume', e.target.value)} />
                                 <input className="ed ed-c ed-mono" value={it.sku} placeholder="—"
                                   onChange={(e) => updateItem(it._id, 'sku', e.target.value)} />
+                                <input className="ed ed-c ed-mono" value={it.barcode} placeholder="—"
+                                  onChange={(e) => updateItem(it._id, 'barcode', e.target.value)} />
+                                <input className="ed ed-c" value={it.perBox} placeholder="—"
+                                  onChange={(e) => updateItem(it._id, 'perBox', e.target.value)} />
+                                <input className="ed ed-c" value={it.pallet} placeholder="—"
+                                  onChange={(e) => updateItem(it._id, 'pallet', e.target.value)} />
                                 <input className="ed ed-r ed-price" type="number" step="1" min="0"
                                   value={Number.isFinite(it.price) ? it.price : 0}
                                   onChange={(e) => updateItem(it._id, 'price', e.target.value === '' ? 0 : Number(e.target.value))} />

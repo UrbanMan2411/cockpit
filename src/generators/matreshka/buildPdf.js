@@ -98,8 +98,8 @@ export async function buildPriceListPdf(rows, options = {}) {
 
   // A4 landscape
   const PW = mm(297), PH = mm(210)
-  // Columns (mm)
-  const C = { photo: 10, name: 46, vol: 150, sku: 178, price: 230 }
+  // Columns (mm) — Фото · Наименование · Объём · Артикул · Штрих-код · В коробе · Паллет · Цена
+  const C = { photo: 10, name: 44, vol: 116, sku: 140, barcode: 166, box: 202, pallet: 224, price: 248 }
   const RIGHT = 287
   const nameW = mm(C.vol - C.name - 3)
   const ROW_MIN = mm(16)
@@ -188,14 +188,20 @@ export async function buildPriceListPdf(rows, options = {}) {
           color: INK,
         })
       })
-      // vol / sku — centre-aligned within their columns
-      const baseS = cy - 8.4 * 0.35
-      const volCenter = mm((C.vol + C.sku) / 2)
-      const skuCenter = mm((C.sku + C.price) / 2)
+      // numeric / text columns — centre-aligned within each column
+      const baseS = cy - 8.0 * 0.35
+      const cText = (text, a, b, size = 8.0) => {
+        const t = String(text ?? '')
+        if (!t) return
+        const cx = mm((a + b) / 2)
+        page.drawText(t, { x: cx - reg.widthOfTextAtSize(t, size) / 2, y: baseS, size, font: reg, color: INK7 })
+      }
+      cText(r.volume, C.vol, C.sku)
+      cText(r.sku, C.sku, C.barcode)
+      cText(r.barcode, C.barcode, C.box, 7.6)
+      cText(r.perBox, C.box, C.pallet)
+      cText(r.pallet, C.pallet, C.price)
       const priceCenter = mm((C.price + RIGHT) / 2)
-      page.drawText(r.volume, { x: volCenter - reg.widthOfTextAtSize(r.volume, 8.4) / 2, y: baseS, size: 8.4, font: reg, color: INK7 })
-      const skuS = String(r.sku)
-      page.drawText(skuS, { x: skuCenter - reg.widthOfTextAtSize(skuS, 8.4) / 2, y: baseS, size: 8.4, font: reg, color: INK7 })
       // price — centre-aligned within its column
       const priceTxt = fmtPrice(r.price)
       page.drawText(priceTxt, {
@@ -257,7 +263,7 @@ function drawHeader(page, W, H, _logo, reg, bold) {
 function drawTHead(page, ymm, C, RIGHT, reg, bold) {
   page.drawRectangle({ x: mm(8), y: ymm - mm(6), width: mm(RIGHT - 8), height: mm(7), color: GREEN9 })
   const ty = ymm - mm(4)
-  const sz = 8.2
+  const sz = 7.4
   // 'Наименование' stays left-aligned (text is left-aligned)
   page.drawText('Наименование', { x: mm(C.name) + mm(1), y: ty, size: sz, font: bold, color: WHITE })
   // centred headers over their column centres (values are centred too)
@@ -266,9 +272,11 @@ function drawTHead(page, ymm, C, RIGHT, reg, bold) {
     page.drawText(text, { x: cx - bold.widthOfTextAtSize(text, size) / 2, y: ty, size, font: bold, color: WHITE })
   drawCentered('Фото', center(C.photo, C.name - 3))
   drawCentered('Объём', center(C.vol, C.sku))
-  drawCentered('Артикул', center(C.sku, C.price))
-  // price label (Matreshka price column = «Цена в руб, Дистрибьютор»)
-  drawCentered('Цена ₽, дистрибьютор', center(C.price, RIGHT), 7.6)
+  drawCentered('Артикул', center(C.sku, C.barcode))
+  drawCentered('Штрих-код', center(C.barcode, C.box), 7)
+  drawCentered('В коробе', center(C.box, C.pallet), 6.8)
+  drawCentered('Паллет', center(C.pallet, C.price), 6.8)
+  drawCentered('Цена ₽, дистр.', center(C.price, RIGHT), 7)
 }
 
 function drawSection(page, y, title, C, RIGHT, bold) {
