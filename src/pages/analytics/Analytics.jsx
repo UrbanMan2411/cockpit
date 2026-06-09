@@ -15,9 +15,10 @@ function SkuReport() {
   }
   return (
     <div className="card">
-      <h3>База SKU · WB + Ozon</h3>
+      <h3>База SKU + ABC · WB + Ozon</h3>
       <p>
-        Свежая таблица по всем товарам за 30 дней: выручка, заказы, показы, конверсия, выкуп, остатки, рейтинг.
+        Свежая таблица по всем товарам за 30 дней: выручка, заказы, показы, конверсия, выкуп, остатки, рейтинг
+        + <b>ABC-сегментация</b> (A — флагманы, B — средние, C — слабые; по выручке, Парето 80/15/5).
         Файл сохраняется в <b>Загрузки → Отчёты</b>.
       </p>
       <button className="btn" onClick={run} disabled={status === 'loading'}>
@@ -26,7 +27,8 @@ function SkuReport() {
       {status === 'done' && result && (
         <p style={{ marginTop: 12, fontSize: 13.5 }}>
           ✓ Готово: <b>{result.total}</b> SKU (WB {result.wb} · Ozon {result.oz}), выручка{' '}
-          <b>{(result.revenue || 0).toLocaleString('ru-RU')} ₽</b>.{' '}
+          <b>{(result.revenue || 0).toLocaleString('ru-RU')} ₽</b>.
+          {result.abc && <> ABC: <b>A {result.abc.A}</b> · B {result.abc.B} · C {result.abc.C}.</>}{' '}
           <a href={result.url} download target="_blank" rel="noreferrer">Скачать xlsx</a>
           {(result.wbErr || result.ozErr) && (
             <span style={{ color: '#8a6914' }}><br />⚠ {[result.wbErr && 'WB: ' + result.wbErr, result.ozErr && 'Ozon: ' + result.ozErr].filter(Boolean).join('; ')}</span>
