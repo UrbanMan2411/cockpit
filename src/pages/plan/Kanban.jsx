@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import {
-  loadState, createCard, updateCard, deleteCard, moveCard,
-  COLUMNS, TAGS,
+  loadState, saveState, createCard, updateCard, deleteCard, moveCard,
+  loadCloud, saveCloud, COLUMNS, TAGS,
 } from '../../lib/kanban'
 
 const tagClass = (t) => 'kb-card-tag t-' + (t || 'other')
@@ -11,8 +11,33 @@ const tagLabel = (t) => (TAGS.find((x) => x.id === t) || TAGS[3]).label
 export default function Kanban() {
   const [state, setState] = useState(() => loadState())
   const [editing, setEditing] = useState(null) // { mode: 'create'|'edit', col, card? }
+  const cloudReady = useRef(false)
 
-  useEffect(() => { setState(loadState()) }, [])
+  // Load the shared cloud board; if cloud is empty, migrate this device's board up.
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const local = loadState()
+      setState(local)
+      const cloud = await loadCloud()
+      if (!alive) return
+      if (cloud) {
+        for (const col of COLUMNS) if (!cloud.cards[col.id]) cloud.cards[col.id] = []
+        setState(cloud); saveState(cloud)
+      } else {
+        saveCloud(local) // first run → seed cloud from this board
+      }
+      cloudReady.current = true
+    })()
+    return () => { alive = false }
+  }, [])
+
+  // Debounced push of any change to the shared cloud.
+  useEffect(() => {
+    if (!cloudReady.current) return
+    const t = setTimeout(() => saveCloud(state), 800)
+    return () => clearTimeout(t)
+  }, [state])
 
   const onDragEnd = (result) => {
     const { source, destination } = result

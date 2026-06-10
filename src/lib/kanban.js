@@ -109,6 +109,24 @@ export function saveState(state) {
   try { localStorage.setItem(KEY, JSON.stringify(state)) } catch {}
 }
 
+// ── shared cloud board (Blob via /api/plan/board) ──
+export async function loadCloud() {
+  try {
+    const r = await fetch('/api/plan/board')
+    if (!r.ok) return null
+    const j = await r.json()
+    return j && j.board && j.board.cards ? j.board : null
+  } catch { return null }
+}
+
+export async function saveCloud(state) {
+  try {
+    await fetch('/api/plan/board', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ board: state }),
+    })
+  } catch { /* offline → localStorage keeps the copy */ }
+}
+
 export function createCard(state, colId, fields) {
   const t = nowIso()
   const card = {
