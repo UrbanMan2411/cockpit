@@ -38,12 +38,14 @@ async function ozPeriod(cid, key, from, to) {
   return m
 }
 
+import { guard } from '../_auth.js'
 export default async function handler(req, res) {
+  if (guard(req, res)) return
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
   const { WB_TOKEN, OZON_CLIENT_ID, OZON_API_KEY, BLOB_READ_WRITE_TOKEN } = process.env
   if (!BLOB_READ_WRITE_TOKEN) return res.status(503).json({ error: 'not_configured', message: 'BLOB_READ_WRITE_TOKEN не задан.' })
 
-  const now = Date.now()
+  const now = Date.now() - DAY // end yesterday — today's data is partial
   const TO = iso(new Date(now)), FROM = iso(new Date(now - 7 * DAY))
   const PREV_FROM = iso(new Date(now - 14 * DAY)), PREV_TO = FROM
 

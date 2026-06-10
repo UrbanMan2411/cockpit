@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './layout/Layout'
+import AuthGate from './layout/AuthGate'
 
 // Code-split heavy routes so the initial bundle stays light.
 const Analytics  = lazy(() => import('./pages/analytics/Analytics'))
@@ -19,6 +20,7 @@ const Loading = () => (
 
 export default function App() {
   return (
+    <AuthGate>
     <Layout>
       <Suspense fallback={<Loading />}>
         <Routes>
@@ -34,5 +36,6 @@ export default function App() {
         </Routes>
       </Suspense>
     </Layout>
+    </AuthGate>
   )
 }

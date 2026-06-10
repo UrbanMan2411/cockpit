@@ -12,7 +12,9 @@
 
 const WB_URL = 'https://seller-analytics-api.wildberries.ru/api/analytics/v3/sales-funnel/products'
 
+import { guard } from '../_auth.js'
 export default async function handler(req, res) {
+  if (guard(req, res)) return
   const token = process.env.WB_TOKEN
   if (!token) {
     return res.status(503).json({

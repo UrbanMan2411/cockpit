@@ -42,12 +42,15 @@ async function ozRows(cid, key, from, to) {
   })
 }
 
+import { guard } from '../_auth.js'
 export default async function handler(req, res) {
+  if (guard(req, res)) return
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
   const { WB_TOKEN, OZON_CLIENT_ID, OZON_API_KEY, BLOB_READ_WRITE_TOKEN } = process.env
   if (!BLOB_READ_WRITE_TOKEN) return res.status(503).json({ error: 'not_configured', message: 'BLOB_READ_WRITE_TOKEN не задан.' })
 
-  const TO = iso(new Date()), FROM = iso(new Date(Date.now() - 30 * 86400000))
+  const end = Date.now() - 86400000 // end yesterday — today's data is partial
+  const TO = iso(new Date(end)), FROM = iso(new Date(end - 30 * 86400000))
   let rows = [], wbErr = '', ozErr = ''
   if (WB_TOKEN) { try { rows = rows.concat(await wbRows(WB_TOKEN, FROM, TO)) } catch (e) { wbErr = String(e.message || e) } } else wbErr = 'WB_TOKEN не задан'
   if (OZON_CLIENT_ID && OZON_API_KEY) { try { rows = rows.concat(await ozRows(OZON_CLIENT_ID, OZON_API_KEY, FROM, TO)) } catch (e) { ozErr = String(e.message || e) } } else ozErr = 'Ozon ключи не заданы'

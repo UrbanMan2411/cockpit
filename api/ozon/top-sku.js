@@ -9,7 +9,9 @@
 
 const OZON_URL = 'https://api-seller.ozon.ru/v1/analytics/data'
 
+import { guard } from '../_auth.js'
 export default async function handler(req, res) {
+  if (guard(req, res)) return
   const clientId = process.env.OZON_CLIENT_ID
   const apiKey = process.env.OZON_API_KEY
   if (!clientId || !apiKey) {

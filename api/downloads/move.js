@@ -3,7 +3,9 @@
 // Used for both "move between folders" and "rename file" (both = new pathname).
 import { copy, del } from '@vercel/blob'
 
+import { guard } from '../_auth.js'
 export default async function handler(req, res) {
+  if (guard(req, res)) return
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return res.status(503).json({ error: 'not_configured', message: 'BLOB_READ_WRITE_TOKEN не задан в env.' })
@@ -12,6 +14,14 @@ export default async function handler(req, res) {
   if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
   const { fromUrl, fromPathname, toPathname } = body || {}
   if (!fromUrl || !toPathname) return res.status(400).json({ error: 'bad_request', message: 'Нужны fromUrl и toPathname.' })
+  // guard: only our own Blob store, no config blobs, no traversal
+  if (!/^https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com\//.test(fromUrl)) {
+    return res.status(400).json({ error: 'bad_url', message: 'fromUrl должен быть ссылкой нашего хранилища.' })
+  }
+  if (toPathname.startsWith('_') || toPathname.includes('..') ||
+      (fromPathname && (fromPathname.startsWith('_') || fromPathname.includes('..')))) {
+    return res.status(400).json({ error: 'bad_path', message: 'Недопустимый путь.' })
+  }
   if (fromPathname && fromPathname === toPathname) return res.status(200).json({ unchanged: true })
 
   try {

@@ -439,3 +439,16 @@ button { font-family: inherit; }
 @media (max-width: 640px) {
   .dl-row { grid-template-columns: 44px 1fr auto auto; }
 }
+
+/* ── Auth gate ───────────────────────────────────────────── */
+.auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: radial-gradient(900px 500px at 50% -10%, rgba(168,38,47,.08), transparent 60%), var(--cream); }
+.auth-card { width: 100%; max-width: 360px; background: #fff; border: 1px solid var(--line); border-radius: 16px;
+  padding: 32px 28px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 12px; text-align: center; }
+.auth-title { font-weight: 800; font-size: 20px; color: var(--bordo); }
+.auth-sub { font-size: 13.5px; color: var(--muted); margin-bottom: 6px; }
+.auth-input { font-family: inherit; font-size: 15px; padding: 11px 14px; border: 1.5px solid var(--line);
+  border-radius: 10px; background: #fff; color: var(--ink); }
+.auth-input:focus { outline: none; border-color: var(--bordo); box-shadow: 0 0 0 3px rgba(168,38,47,.1); }
+.auth-err { font-size: 13px; color: #c9302c; }
+.auth-card .btn { justify-content: center; }
