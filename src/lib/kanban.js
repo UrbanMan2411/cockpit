@@ -15,6 +15,7 @@ export const COLUMNS = [
 export const TAGS = [
   { id: 'analysis',    label: 'Анализ' },
   { id: 'marketplace', label: 'Маркетплейс' },
+  { id: 'channels',    label: 'Каналы' },
   { id: 'matreshka',   label: 'Матрёшка' },
   { id: 'greenpanda',  label: 'GreenPanda' },
   { id: 'other',       label: 'Прочее' },
@@ -46,6 +47,16 @@ const IMPORT_PACKS = {
       ['Автоматизация (Claude Code)', 'Склейка CSV/Excel WB+Ozon, расчёт ДРР/маржи, генератор недельного отчёта, мини-дашборд.'],
     ],
   },
+  salesChannels: {
+    column: 'backlog',
+    tag: 'channels',
+    cards: [
+      ['Настройка и запуск магазина в Telegram', 'Подключить Telegram-магазин (бот/витрина): каталог, карточки, корзина, оплата, доставка, запуск.'],
+      ['Структура мини-приложения ВКонтакте', 'VK Mini App: разделы, каталог, карточки товаров, корзина, навигация, интеграция оплаты.'],
+      ['Создание КП', 'Коммерческое предложение для байеров/опта: ассортимент, цены, условия, преимущества, контакты.'],
+      ['ИИ-агент рассылки по соцсетям', 'Автоматизация постов и рассылок по соцсетям: контент-план, расписание, генерация текстов/визуала.'],
+    ],
+  },
 }
 
 const nowIso = () => new Date().toISOString()
@@ -72,7 +83,7 @@ function seed() {
   }
 }
 
-function applyImports(state) {
+export function applyImports(state) {
   state.imported = state.imported || {}
   let changed = false
   for (const [packId, pack] of Object.entries(IMPORT_PACKS)) {

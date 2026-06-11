@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import {
-  loadState, saveState, createCard, updateCard, deleteCard, moveCard,
+  loadState, saveState, applyImports, createCard, updateCard, deleteCard, moveCard,
   loadCloud, saveCloud, COLUMNS, TAGS,
 } from '../../lib/kanban'
 
@@ -23,9 +23,10 @@ export default function Kanban() {
       if (!alive) return
       if (cloud) {
         for (const col of COLUMNS) if (!cloud.cards[col.id]) cloud.cards[col.id] = []
-        setState(cloud); saveState(cloud)
+        const merged = applyImports(cloud) // apply any new task packs once, to the cloud board too
+        setState(merged); saveState(merged); saveCloud(merged)
       } else {
-        saveCloud(local) // first run → seed cloud from this board
+        saveCloud(local) // first run → seed cloud from this board (imports already applied locally)
       }
       cloudReady.current = true
     })()

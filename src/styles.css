@@ -183,6 +183,7 @@ button { font-family: inherit; }
 }
 .kb-card-tag.t-analysis { background: rgba(200,151,43,.18); color: #8a6914; }
 .kb-card-tag.t-marketplace { background: #E6ECF7; color: #36568f; }
+.kb-card-tag.t-channels { background: #EDE7FB; color: #5b3aa0; }
 .kb-card-tag.t-matreshka { background: rgba(168,38,47,.12); color: var(--bordo); }
 .kb-card-tag.t-greenpanda { background: rgba(31,176,97,.15); color: var(--green-9); }
 .kb-card-tag.t-other { background: var(--cream-2); color: var(--ink-7); }
