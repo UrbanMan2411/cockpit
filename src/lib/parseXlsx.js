@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'
 import JSZip from 'jszip'
-import { removeWhiteBackground } from './removeWhiteBg'
+import { removeWhiteBackground } from './removeWhiteBg.js'
 
 // SKU prefixes used only as a hint for fallback labels; photos come from xlsx.
 const norm = (v) => (v == null ? '' : String(v)).replace(/\s+/g, ' ').trim()
@@ -94,7 +94,7 @@ export async function parsePriceXlsx(file) {
  *            a row off, or which share a neighbour's photo).
  * Header/decoration images (above the first product row) match nothing.
  */
-function assignImages(products, anchors) {
+export function assignImages(products, anchors) {
   const used = new Array(anchors.length).fill(false)
 
   // Pass 1 — exact from-row, locked first so nothing can steal it.
