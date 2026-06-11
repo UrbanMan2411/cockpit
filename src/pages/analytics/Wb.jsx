@@ -14,7 +14,7 @@ const CONFIG = {
     { label: 'Показы карточек', value: int(t.views) },
     { label: 'SKU в выборке', value: int(t.skuCount) },
   ],
-  bar: { name: (r) => r.vendorCode || r.nmId, title: (r) => `${r.vendorCode} · ${r.brand}` },
+  bar: { name: (r) => r.title || r.vendorCode || r.nmId, title: (r) => `${r.title || ''} · арт. ${r.vendorCode || r.nmId}` },
   columns: [
     { header: '#', tdCls: 'oz-rank', render: (r, i) => i + 1 },
     { header: 'Товар', render: (r) => <><div className="oz-name">{r.vendorCode || '—'}{r.brand ? ` · ${r.brand}` : ''}</div><div className="oz-sku">nmID {r.nmId}{r.subject ? ` · ${r.subject}` : ''}</div></> },
