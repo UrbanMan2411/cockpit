@@ -7,6 +7,17 @@ export const rub = (n) => Math.round(n).toLocaleString('ru-RU') + ' ₽'
 export const int = (n) => Math.round(n).toLocaleString('ru-RU')
 export const pct = (n) => (+n || 0).toFixed(1).replace('.', ',') + '%' // value already in percent
 
+// Trim keyword-stuffed marketplace titles to a short, clear label: drop the
+// part after the first comma, then cap at a word boundary.
+export const shorten = (s, max = 42) => {
+  if (!s) return s
+  let t = String(s).split(',')[0].trim()
+  if (t.length <= max) return t
+  const cut = t.slice(0, max)
+  const sp = cut.lastIndexOf(' ')
+  return (sp > max * 0.6 ? cut.slice(0, sp) : cut).trim() + '…'
+}
+
 const iso = (d) => d.toISOString().slice(0, 10)
 const rangeFor = (days) => {
   const to = new Date(), from = new Date(to.getTime() - days * 86400000)

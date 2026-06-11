@@ -1,5 +1,5 @@
 import React from 'react'
-import MarketplaceReport, { rub, int, pct } from './MarketplaceReport'
+import MarketplaceReport, { rub, int, pct, shorten } from './MarketplaceReport'
 
 const CONFIG = {
   endpoint: '/api/wb/top-sku', apiName: 'WB API', scope: 'wb-scope', csvName: 'wb-top-sku',
@@ -14,7 +14,7 @@ const CONFIG = {
     { label: 'Показы карточек', value: int(t.views) },
     { label: 'SKU в выборке', value: int(t.skuCount) },
   ],
-  bar: { name: (r) => r.title || r.vendorCode || r.nmId, title: (r) => `${r.title || ''} · арт. ${r.vendorCode || r.nmId}` },
+  bar: { name: (r) => shorten(r.title || r.vendorCode || r.nmId), title: (r) => `${r.title || ''} · арт. ${r.vendorCode || r.nmId}` },
   columns: [
     { header: '#', tdCls: 'oz-rank', render: (r, i) => i + 1 },
     { header: 'Товар', render: (r) => <><div className="oz-name">{r.vendorCode || '—'}{r.brand ? ` · ${r.brand}` : ''}</div><div className="oz-sku">nmID {r.nmId}{r.subject ? ` · ${r.subject}` : ''}</div></> },
